@@ -8,7 +8,9 @@ Maxim-Krivobokov microservices repository
 /github subscribe Otus-DevOps-2019-08/Maxim-Krivobokov_microservices commits:all
 ````
 * делаем интеграцию с тестировщиков play-travis
-  * попка play-travis ,  в ней файл play.py
+  * папка play-travis ,  в ней файл test.py
+
+  * в корне репозитория файл .travis.yml
 
 ### Homework - Docker -1 & 2
 
