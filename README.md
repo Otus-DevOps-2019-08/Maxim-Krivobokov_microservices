@@ -1,6 +1,15 @@
 # Maxim-Krivobokov_microservices
 Maxim-Krivobokov microservices repository
 
+### подготовка репозитория
+* создан шаблон для PR ./.github/PULL_REQUEST_TEMPLATE.md
+* в своем канале slack настроил подписку на все коммиты из этого репозитория
+````
+/github subscribe Otus-DevOps-2019-08/Maxim-Krivobokov_microservices commits:all
+````
+* делаем интеграцию с тестировщиков play-travis
+  * попка play-travis ,  в ней файл play.py
+
 ### Homework - Docker -1 & 2
 
 * Используется ветка docker-2
