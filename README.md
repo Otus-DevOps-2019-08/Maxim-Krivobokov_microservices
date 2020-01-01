@@ -10,7 +10,7 @@ Maxim-Krivobokov microservices repository
 * делаем интеграцию с тестировщиков play-travis
   * папка play-travis ,  в ней файл test.py
 
-  * в корне репозитория файл .travis.yml
+  * в корне репозитория файл .travis.yml c настройками 
 
 ### Homework - Docker -1 & 2
 
@@ -339,3 +339,200 @@ ls / #никаких изменений, папка opt на месте, пап�
 ````
 
 ### Дополнительное задание - в процессе
+
+
+
+### HW docker-3 . Docker-образы, микросервисы. 
+
+План: 
+
+* Разбить наше приложение на несколько компонентов
+* Запустить наше микросервисное приложение
+
+
+1. Подготовка. 
+ * подключение к ранее созданному Docker -хосту в облаке google
+ * тот хост давно "умер", создаем новый. Имя docker-host3 
+
+ ````
+ export GOOGLE_PROJECT=docker-123456
+
+$ docker-machine create --driver google \
+ --google-machine-image https://www.googleapis.com/compute/v1/projects/ubuntu-os-cloud/global/images/family/ubuntu-1604-lts \
+ --google-machine-type n1-standard-1 \
+ --google-zone europe-west1-b \
+ docker-host3
+
+docker-machine ls
+
+eval $(docker-machine env docker-host3)
+ ````
+
+* распаковка архива с приложением в репозиторий, в папку src. 
+```
+wget https://github.com/express42/reddit/archive/microservices.zipzip \
+  && unzip microservices.zip && rm microservices.zip && mv reddit microservices src
+```
+ 
+2. Новая структура приложения. Три компонента - post-py (написание постов), comment (комментарии), ui (веб-интерфейс)
+
+* создадим dockerfil-ы для каждого компонента
+
+* post-py/dockerfile пришлось немного переделать, иначе установка компонентов через pip проваливалась. 
+````
+FROM python:3.6.0-alpine
+
+WORKDIR /app
+ADD . /app
+
+
+RUN apk add --no-cache --virtual build-deps gcc musl-dev \
+     && pip install -r /app/requirements.txt
+
+ENV POST_DATABASE_HOST post_db 
+ENV POST_DATABASE posts 
+
+CMD ["python3", "post_app.py"]
+
+````
+
+comment/dockerfile
+````
+FROM ruby:2.2
+RUN apt-get update -qq && apt-get install -y build-essential
+ENV APP_HOME /app
+RUN mkdir $APP_HOME
+WORKDIR $APP_HOME
+ADD Gemfile* $APP_HOME/
+RUN bundle install
+COPY . $APP_HOME
+ENV COMMENT_DATABASE_HOST comment_db
+ENV COMMENT_DATABASE comments
+CMD ["puma"]
+````
+
+ui/dockerfile
+````
+FROM ruby:2.2
+RUN apt-get update -qq && apt-get install -y build-essential
+ENV APP_HOME /app
+RUN mkdir $APP_HOME
+WORKDIR $APP_HOME
+ADD Gemfile* $APP_HOME/
+RUN bundle install
+ADD . $APP_HOME
+ENV POST_SERVICE_HOST post
+ENV POST_SERVICE_PORT 5000
+ENV COMMENT_SERVICE_HOST comment
+ENV COMMENT_SERVICE_PORT 9292
+CMD ["puma"]
+````
+
+3.Создание образов.
+ *  Скачиваем образ для контейнера для mongodb
+
+````
+docker pull mongo:latest
+````
+
+* сборка образов с компонентами
+````
+docker build -t max89k/post:1.1 ./post-py
+# post 1.0 работал некорректно, поэтому сразу заменен на 1.1
+
+docker build -t max89k/comment:1.0 ./comment
+docker build -t max89k/ui:1.0 ./ui
+````
+
+* почему сборка ui началась со второго шага - потому что ui и comment создаются на базе ruby:2.2, и первый шаг у них одинаковый (установка build essential ) был выполнен при билде comment, и соответствующий промежуточный слой сохранился в системе. 
+
+4.  запуск контейнеров
+
+* создание специальной bridge-сети для приложения (для того, чтобы можно было использовать сетевые алиасы)
+````
+docker network create reddit
+````
+
+* запуск контейнеров с указанием алиасов
+````
+docker run -d --network=reddit \
+--network-alias=post_db --network-alias=comment_db mongo:latest
+docker run -d --network=reddit \
+--network-alias=post max89k/post:1.1
+docker run -d --network=reddit \
+--network-alias=comment max89k/comment:1.0
+docker run -d --network=reddit \
+-p 9292:9292 max89k/ui:1.0
+````
+* Сетевые алиасы могут быть использованы для сетевых
+соединений, как доменные имена
+
+* перейдя по адресу 34.77.65.110:9292, можно проверить работоспособность приложения
+
+5. Уменьшение размеров образов
+
+* просмотр свойств образов 
+````
+docker images
+
+REPOSITORY          TAG                 IMAGE ID            CREATED             SIZE
+max89k/post         1.1                 79afd7298ff4        44 minutes ago      198MB
+max89k/ui           1.0                 a09e98dd9faf        3 hours ago         784MB
+max89k/comment      1.0                 6786004877fa        3 hours ago         781MB
+mongo               latest              a0e2e64ac939        10 days ago         364MB
+ubuntu              16.04               c6a43cd4801e        10 days ago         123MB
+ruby                2.2                 6c8e6f9667b2        20 months ago       715MB
+python              3.6.0-alpine        cb178ebbf0f2        2 years ago         88.6MB
+````
+
+* размер образа UI можно уменьшить, изменив dockerfile
+
+````
+FROM ubuntu:16.04
+RUN apt-get update \
+    && apt-get install -y ruby-full ruby-dev build-essential \
+    && gem install bundler --no-ri --no-rdoc
+
+ENV APP_HOME /app 
+RUN mkdir $APP_HOME 
+WORKDIR $APP_HOME 
+COPY Gemfile* $APP_HOME/
+RUN bundle install
+COPY . $APP_HOME
+ENV POST_SERVICE_HOST post
+ENV POST_SERVICE_PORT 5000
+ENV COMMENT_SERVICE_HOST comment
+ENV COMMENT_SERVICE_PORT 9292
+CMD ["puma"]
+
+````
+
+* самое "вредное" для размера образа - установка пакетов отедблыми командами. Нужно поместить в один RUN как можно больше действий по установке. т.к 1 RUn - 1 слой (одно кэширование)
+
+* также встроенный в VScode hadolint советует заменять ADD на COPY, указывать определенную версию пакета, и удалять списки apt-get после установки
+
+* ссылка на Best Practices: https://docs.docker.com/engine/userguide/eng-image/dockerfile_best-practices/#sort-multi-line-arguments
+
+6. присоединение Volume для хранения БД постов. 
+
+* удалив-стерев (kill) контейнеры и создав их заново, потеряем все старые посты
+
+* создадим docker volume
+````
+docker volume create reddit_db
+````
+
+* убив контейнеры, запускаем заново. Для контейнера с БД MongoDB указываем параметр -v - использование Volume
+````
+docker run -d --network=reddit --network-alias=post_db \
+--network-alias=comment_db -v reddit_db:/data/db mongo:latest
+docker run -d --network=reddit \
+--network-alias=post max89k/post:1.1
+docker run -d --network=reddit \
+--network-alias=comment max89k/comment:1.0
+docker run -d --network=reddit \
+-p 9292:9292 max89k/ui:2.0
+````
+
+* можно проверить, что после стирания контейнеров, и создания новых, старые посты сохраняются, т.к Data Volume не зависит от стирания присоединенного к ней контейнера. 
+
