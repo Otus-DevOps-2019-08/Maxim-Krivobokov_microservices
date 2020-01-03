@@ -916,3 +916,4 @@ docker-compose --env-file ./data.env -p HW16  down
  * можно добавить переменную COMPOSE_PROJECT_NAME в .env файл
 
  * нельзя менять содержимое docker-compose.yml , data.env при запущенных контейнерах, т.к. docker-compose будет заглядывать в него при попытке "загасить" по команде docker-compose down,  и ругаться
+ 
