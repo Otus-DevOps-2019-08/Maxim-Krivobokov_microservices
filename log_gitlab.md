@@ -97,3 +97,99 @@ root@gitlab-ci:~# docker exec -it gitlab-runner gitlab-runner register --run-unt
 вводим URL, token, описание, теги (linux, ubuntu, docker). и исполнителя (docker)
 
 Settings - > CI\CD -> Specific Runners
+
+Runner запускается по коммиту. Можно посмотреть на вывод-промежуточные результаты
+
+
+* добавил исходный код реддит в репозиторий
+````
+git clone https://github.com/express42/reddit.git && rm -rf ./reddit/.git
+git add reddit/
+git commit -m “Add reddit app”
+git push gitlab gitlab-ci-1
+````
+* изменил описание пайплайна в .юмл
+````
+image: ruby:2.4.2
+
+variables:
+    DATABASE_URL: 'mongodb://mongo/user_posts'
+
+test_unit_job:
+  stage: test
+  services:
+    - mongo:latest
+  script:
+    - ruby simpletest.rb
+````
+* нужно создать скрипт simpletest.rb
+```
+require_relative './app'
+require 'test/unit'
+require 'rack/test'
+
+set :environment, :test
+
+class MyAppTest < Test::Unit::TestCase
+  include Rack::Test::Methods
+
+  def app
+    Sinatra::Application
+  end
+
+  def test_get_request
+    get '/'
+    assert last_response.ok?
+  end
+end
+```
+*  добавил строку в reddit/gemfile 
+
+```
+gem 'rack-test'
+```
+
+* запушил все в гитлаб
+
+* конвейер запустился, тест прошел. 
+
+
+### Описание окружений
+
+* Изменим пайплайн таким образом, чтобы job deploy
+стал определением окружения dev, на которое условно
+будет выкатываться каждое изменение в коде проекта
+
+* переименован stage-deploy в review ; deploy job -> deploy_dev_job
+
+* добавил environment
+
+
+* после успешного прохождения конвейера появится пункт environment в GUI (Operations - > Environments)
+
+* Определим два новых этапа: stage и production, первый будет
+содержать job имитирующий выкатку на staging окружение, второй
+на production окружение.
+
+* Определим эти job таким образом, чтобы они запускались с кнопки
+````
+staging:
+   stage: stage
+   when: manual   # этот параметр определяет запуск с кнопки
+   script: 
+      - echo 'Deploy'
+   environment:
+      name: stage
+      url: https://beta.example.com
+
+production:
+   stage: production
+   when: manual
+   script:
+       - echo 'Deploy'
+   environment: 
+       name: production
+       url: https://example.com
+````
+
+
