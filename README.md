@@ -900,18 +900,28 @@ docker-compose --env-file ./data.env  down
  docker-compose --env-file ./data.env -p HW16 up -d
 
  Creating network "hw16_front_net" with the default driver
+
 Creating network "hw16_back_net" with the default driver
 Creating volume "hw16_post_db" with default driver
 Creating hw16_ui_1      ... done
 Creating hw16_post_db_1 ... done
 Creating hw16_post_1    ... done
 Creating hw16_comment_1 ... done
+=======
+ Creating network "hw16_back_net" with the default driver
+ Creating volume "hw16_post_db" with default driver
+ Creating hw16_ui_1      ... done
+ Creating hw16_post_db_1 ... done
+ Creating hw16_post_1    ... done
+ Creating hw16_comment_1 ... done
+
  ````
 
  * это неудобно, т.к для стирания по команде docker-compose down надо опять указывать и --env-file, и имя проекта. 
  ````
 docker-compose --env-file ./data.env -p HW16  down
  ````
+
 
  * можно добавить переменную COMPOSE_PROJECT_NAME в .env файл
 
@@ -1156,3 +1166,10 @@ except:
 * теперь, создав сторонние ветки в репозитоприи (bugfix, feature) получим новые окружения с именами review/bugfix, review/feature
 
 * в папке gitlab-ci репозиторий создан docker-compose.yml для развертывания gitlab-сi 
+
+ * HINT если назвать файл с переменнеыми .env, то он подхватится по умолчанию.
+
+ * можно добавить переменную COMPOSE_PROJECT_NAME в .env файл
+
+ * нельзя менять содержимое docker-compose.yml , data.env при запущенных контейнерах, т.к. docker-compose будет заглядывать в него при попытке "загасить" по команде docker-compose down,  и ругаться
+
