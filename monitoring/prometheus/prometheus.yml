@@ -1,0 +1,25 @@
+---
+    global:
+      scrape_interval: '5s'
+      # c какой частотой собирать метрики
+    
+    scrape_configs:
+      - job_name: 'prometheus'  # job-ы объединяют таргеты (эндпоинты), выполняющие одинаковые функции, в группы.
+        static_configs:
+          - targets:
+            - 'localhost:9090' # адреса для сбора метрик (эндпоинты)
+    
+      - job_name: 'ui'
+        static_configs:
+          - targets:
+            - 'ui:9292'
+    
+      - job_name: 'comment'
+        static_configs:
+          - targets:
+            - 'comment:9292'
+    
+      - job_name: 'node'
+        static_configs:
+         - targets:
+            - 'node-exporter:9100'

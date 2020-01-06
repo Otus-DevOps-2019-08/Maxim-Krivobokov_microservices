@@ -156,16 +156,19 @@ gem 'rack-test'
 
 ### Описание окружений
 
-* Изменим пайплайн таким образом, чтобы job deploy
+* Изменим .gitlab-ci.yml таким образом, чтобы job deploy
 стал определением окружения dev, на которое условно
 будет выкатываться каждое изменение в коде проекта
 
 * переименован stage-deploy в review ; deploy job -> deploy_dev_job
 
-* добавил environment
-
-
-* после успешного прохождения конвейера появится пункт environment в GUI (Operations - > Environments)
+* добавил пункт environment
+```
+environment:
+name: dev
+url: http://dev.example.com
+```
+* после успешного прохождения конвейера появится пункт environment в GUI (Operations -> Environments)
 
 * Определим два новых этапа: stage и production, первый будет
 содержать job имитирующий выкатку на staging окружение, второй
@@ -184,7 +187,7 @@ staging:
 
 production:
    stage: production
-   when: manual
+   when: manual # этот параметр определяет запуск с кнопки
    script:
        - echo 'Deploy'
    environment: 
@@ -193,8 +196,44 @@ production:
 ````
 
 
-* осталось дописать про диначиское окружение
+* после завершения работы пайплайна появятся два новых окружения
+
+* на "схеме" пайплайна в GUI видим в пунктах Stage и Production шестереночки - ручной запуск. 
+
+### ввод условия и ограничений
+* изменил .yml файл, для добавления в job-ы stage и prod условия - наличия semver тега формата 1.2.30
+```
+stage:
+stage: stage
+when: manual
+only:
+- /^\d+\.\d+\.\d+/ #регулярное выражение
+```
+
+* теперь пуше без нужного тега запустится пайплайн без stage и prod.
+* для включения этих пунктов нужно добавить тег после коммита, перед пушем
+```
+git commit -a -m ‘#10 added great feature’
+git tag 2.4.69
+git push gitlab gitlab-ci-1 --tags
+```
 
 
+### Динамические окружения
+* добавим job для определения динамического окружения
+```
+branch review:
+stage: review
+script: echo "Deploy to $CI_ENVIRONMENT_SLUG"
+environment:
+name: branch/$CI_COMMIT_REF_NAME
+url: http://$CI_ENVIRONMENT_SLUG.example.com
+only:
+- branches
+except:
+- master
+```
+
+* теперь, создав сторонние ветки в репозитоприи (bugfix, feature) получим новые окружения с именами review/bugfix, review/feature
 
 * в папке gitlab-ci репозиторий создан docker-compose.yml для развертывания gitlab-сi 
