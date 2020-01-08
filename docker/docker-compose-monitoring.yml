@@ -74,6 +74,7 @@ services:
         - 9093:9093
     networks:
         - back_net
+        - front_net
             
 volumes:
      prometheus_data:
